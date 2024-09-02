@@ -6,7 +6,6 @@ import { icons } from "@/constants";
 import CustomButton from "@/components/CustomButton";
 
 const googlePlacesApiKey = process.env.EXPO_PUBLIC_GOOGLE_API_KEY!;
-
 const GoogleTextInput = ({
   icon,
   containerStyle,

@@ -9,6 +9,7 @@ import CustomButton from "@/components/CustomButton";
 import { images } from "@/constants";
 import { fetchAPI } from "@/lib/fetch";
 import { PaymentProps } from "@/types/type";
+import { useLocationStore } from "@/store";
 
 const Payment = ({
   fullName,
@@ -20,51 +21,83 @@ const Payment = ({
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { userId } = useAuth();
   const [success, setSuccess] = useState<boolean>(false);
-
-  const confirmHandler = async (
-    paymentMethod,
-    shouldSavePaymentMethod,
-    intentCreationCallback,
-  ) => {
-    const { paymentIntent, customer } = fetchAPI("/(api)/(stripe)/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: fullName || email.split("@")[0],
-        email: email,
-        amount,
-        paymentMethodId: paymentMethod.id,
-      }),
-    });
-
-    if (paymentIntent.client_secret) {
-      const { result } = await fetchAPI("/(api)/(stripe)/pay", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          payment_method_id: paymentMethod.id,
-          payment_intent_id: paymentIntent.id,
-          customer_id: customer,
-        }),
-      });
-
-      if (result.client_secret) {
-      }
-    }
-  };
+  const {
+    userAddress,
+    userLatitude,
+    userLongitude,
+    destinationAddress,
+    destinationLatitude,
+    destinationLongitude,
+  } = useLocationStore();
 
   const initializePaymentSheet = async () => {
     const { error } = await initPaymentSheet({
-      merchantDisplayName: "Example, Inc.",
+      merchantDisplayName: "Ride, Inc.",
       intentConfiguration: {
         mode: {
-          amount: 1099,
+          amount: parseInt(amount) * 100,
           currencyCode: "USD",
         },
-        confirmHandler: confirmHandler,
+        confirmHandler: async (
+          paymentMethod,
+          shouldSavePaymentMethod,
+          intentCreationCallback,
+        ) => {
+          const { paymentIntent, customer } = await fetchAPI(
+            "/(api)/(stripe)/create",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: fullName || email.split("@")[0],
+                email: email,
+                amount,
+                paymentMethodId: paymentMethod.id,
+              }),
+            },
+          );
+
+          if (paymentIntent.client_secret) {
+            const { result } = await fetchAPI("/(api)/(stripe)/pay", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                payment_method_id: paymentMethod.id,
+                payment_intent_id: paymentIntent.id,
+                customer_id: customer,
+              }),
+            });
+
+            if (result.client_secret) {
+              await fetchAPI("/(api)/ride/create", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  origin_address: userAddress,
+                  destination_address: destinationAddress,
+                  origin_latitude: userLatitude,
+                  origin_longitude: userLongitude,
+                  destination_latitude: destinationLatitude,
+                  destination_longitude: destinationLongitude,
+                  ride_time: rideTime,
+                  fare_price: amount,
+                  payment_status: "paid",
+                  driver_id: driverId,
+                  user_id: userId,
+                }),
+              });
+              intentCreationCallback({
+                clientSecret: result.client_secret,
+              });
+            }
+          }
+        },
       },
+      returnURL: 'myapp"//book-ride',
     });
     if (error) {
       Alert.alert("Error" + error.code, error.message);
@@ -83,6 +116,7 @@ const Payment = ({
       setSuccess(true);
     }
   };
+
   return (
     <>
       <CustomButton

@@ -1,7 +1,7 @@
 import { Stripe } from "stripe";
 import { key } from "@/constants/key";
 
-const stripe = new Stripe(key.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(request: Request) {
   try {
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       }),
     );
   } catch (error) {
+    console.log(error);
     return new Response(JSON.stringify({ error: error, status: 500 }));
   }
 }

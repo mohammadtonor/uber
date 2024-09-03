@@ -1,4 +1,4 @@
-import { useUser } from "@clerk/clerk-expo";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import * as Location from "expo-location";
 import {
   ActivityIndicator,
@@ -9,13 +9,15 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { icons, images, recentRides } from "@/constants";
+import { icons, images } from "@/constants";
 import RideCard from "@/components/RideCard";
 import GoogleTextInput from "@/components/GoogleTextInput";
 import Map from "@/components/Map";
 import { useLocationStore } from "@/store";
 import { useEffect, useState } from "react";
 import { router } from "expo-router";
+import { useFetch } from "@/lib/fetch";
+import { Ride } from "@/types/type";
 
 export default function Home() {
   const {
@@ -24,9 +26,12 @@ export default function Home() {
     userLatitude,
     destinationLatitude,
   } = useLocationStore();
+  const { signOut } = useAuth();
   const { user } = useUser();
+  const { data: recentRides, loading } = useFetch<Ride[]>(
+    `/(api)/ride/${user?.id}`,
+  );
   const [hasPermissions, setHasPermissions] = useState(false);
-  const loading = true;
 
   useEffect(() => {
     const requestLocation = async () => {
@@ -53,7 +58,10 @@ export default function Home() {
     requestLocation();
   }, []);
 
-  const handleSignOut = () => {};
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace("/(auth)/sign-in");
+  };
   const handleGoogleSearch = (location: {
     latitude: number;
     longitude: number;
@@ -63,12 +71,11 @@ export default function Home() {
 
     router.push("/(root)/find-ride");
   };
-  console.log("user", userLatitude);
-  console.log("dest", destinationLatitude);
+
   return (
     <SafeAreaView className="bg-general-500 h-full">
       <FlatList
-        data={recentRides.slice(0, 5)}
+        data={recentRides?.slice(0, 5)}
         renderItem={({ item }) => <RideCard ride={item} />}
         className={"px-2"}
         keyboardShouldPersistTaps={"handled"}
